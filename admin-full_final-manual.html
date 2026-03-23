@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Final Panel</title>
+
+<style>
+body {font-family: Arial; background:#0f172a; color:white; margin:0;}
+.header {background:#1e293b; padding:15px; text-align:center; font-size:20px;}
+.container {padding:15px;}
+.card {background:#1e293b; padding:15px; border-radius:10px; margin-bottom:15px;}
+
+input {
+  width:100%; padding:10px; margin:5px 0;
+  border-radius:6px; border:none;
+}
+
+button {
+  width:100%; padding:10px; margin-top:8px;
+  background: linear-gradient(45deg,#22c55e,#16a34a);
+  color:white; border:none;
+  border-radius:6px;
+  cursor:pointer;
+  font-weight:bold;
+}
+
+button:hover {
+  opacity:0.9;
+  transform:scale(1.02);
+}
+
+.history {
+  background:#334155;
+  padding:8px;
+  border-radius:6px;
+  margin-top:5px;
+}
+
+.small-btn {
+  width:auto;
+  padding:5px 10px;
+  margin-top:5px;
+  background:#3b82f6;
+}
+
+.delete-btn {
+  background:red;
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">🚀 Admin Final Panel</div>
+
+<div class="container">
+
+<!-- FORM -->
+<div class="card">
+<h3>Send Bus Details</h3>
+
+<input type="text" id="agentName" placeholder="Agent Name">
+<input type="text" id="phone" placeholder="Agent WhatsApp Number">
+
+<input type="text" id="name" placeholder="Passenger Name">
+
+<input type="text" id="from" placeholder="From">
+<input type="text" id="to" placeholder="To">
+
+<input type="text" id="bus" placeholder="Bus Name">
+<input type="text" id="seat" placeholder="Seat No">
+
+<input type="time" id="time">
+<input type="date" id="date">
+
+<input type="number" id="earn" placeholder="Commission ₹">
+
+<button onclick="sendWhatsApp()">Send via WhatsApp</button>
+</div>
+
+<!-- DASHBOARD -->
+<div class="card">
+<h3>📊 Dashboard</h3>
+<p>Total Bookings: <span id="totalBooking">0</span></p>
+<p>Total Earnings: ₹<span id="totalEarn">0</span></p>
+<p>Today Earnings: ₹<span id="todayEarn">0</span></p>
+</div>
+
+<!-- EXPORT -->
+<div class="card">
+<h3>📁 Export</h3>
+<button onclick="downloadCSV()">Download Excel (CSV)</button>
+</div>
+
+<!-- HISTORY -->
+<div class="card">
+<h3>📜 Booking History</h3>
+
+<input type="text" id="search" placeholder="Search by name or route" onkeyup="updateUI()">
+
+<button id="clearBtn" style="background:red;" onclick="clearAll()">Clear Booking History</button>
+
+<div id="history"></div>
+</div>
+
+</div>
+
+<script>
+
+let bookings = JSON.parse(localStorage.getItem("bookings") || "[]");
+updateUI();
+
+// SEND WHATSAPP
+function sendWhatsApp(){
+
+  let agentName = agentNameInput().value;
+  let phone = phoneInput().value;
+  let name = nameInput().value;
+  let from = fromInput().value;
+  let to = toInput().value;
+  let bus = busInput().value;
+  let seat = seatInput().value;
+  let time = timeInput().value;
+  let date = dateInput().value;
+  let earn = earnInput().value || 0;
+
+  if(!phone || !name || !from || !to || !bus || !seat || !time || !date){
+    alert("Fill all details ❌");
+    return;
+  }
+
+  phone = phone.replace(/\D/g,'');
+  if(!phone.startsWith("91")) phone="91"+phone;
+
+  let route = from + " → " + to;
+
+  let message = `🚌 Najrul Elite Travels
+
+✅ Booking Confirmed
+
+👤 Passenger: ${name}
+👨‍💼 Agent: ${agentName}
+📍 Route: ${route}
+🚌 Bus: ${bus}
+💺 Seat: ${seat}
+🕒 Time: ${time}
+📅 Date: ${date}`;
+
+  let url = "https://wa.me/"+phone+"?text="+encodeURIComponent(message);
+
+  bookings.push({agentName, name, route, bus, seat, time, date, phone, earn});
+  localStorage.setItem("bookings", JSON.stringify(bookings));
+
+  clearInputs();
+  updateUI();
+  window.open(url,"_blank");
+}
+
+// CLEAR INPUTS
+function clearInputs(){
+  agentNameInput().value="";
+  phoneInput().value="";
+  nameInput().value="";
+  fromInput().value="";
+  toInput().value="";
+  busInput().value="";
+  seatInput().value="";
+  timeInput().value="";
+  dateInput().value="";
+  earnInput().value="";
+}
+
+// INPUT HELPERS
+function agentNameInput(){return document.getElementById("agentName");}
+function phoneInput(){return document.getElementById("phone");}
+function nameInput(){return document.getElementById("name");}
+function fromInput(){return document.getElementById("from");}
+function toInput(){return document.getElementById("to");}
+function busInput(){return document.getElementById("bus");}
+function seatInput(){return document.getElementById("seat");}
+function timeInput(){return document.getElementById("time");}
+function dateInput(){return document.getElementById("date");}
+function earnInput(){return document.getElementById("earn");}
+
+// UPDATE UI
+function updateUI(){
+
+  let totalEarn = 0;
+  let todayEarn = 0;
+  let today = new Date().toISOString().split("T")[0];
+  let html = "";
+  let search = document.getElementById("search").value.toLowerCase();
+
+  bookings.forEach((b,i)=>{
+
+    if(
+      b.name.toLowerCase().includes(search) ||
+      b.route.toLowerCase().includes(search)
+    ){
+
+      totalEarn += Number(b.earn);
+
+      if(b.date === today){
+        todayEarn += Number(b.earn);
+      }
+
+      html += `
+      <div class="history">
+        ${b.agentName} | ${b.route} | ₹${b.earn}
+        <br>
+        <button class="small-btn" onclick="resend(${i})">Resend</button>
+        <button class="small-btn delete-btn" onclick="deleteBooking(${i})">Delete</button>
+      </div>`;
+    }
+
+  });
+
+  document.getElementById("history").innerHTML = html;
+  document.getElementById("totalBooking").innerText = bookings.length;
+  document.getElementById("totalEarn").innerText = totalEarn;
+  document.getElementById("todayEarn").innerText = todayEarn;
+
+  document.getElementById("clearBtn").disabled = bookings.length === 0;
+}
+
+// DELETE SINGLE
+function deleteBooking(i){
+  if(confirm("Delete this booking?")){
+    bookings.splice(i,1);
+    localStorage.setItem("bookings", JSON.stringify(bookings));
+    updateUI();
+  }
+}
+
+// CLEAR ALL HISTORY
+function clearAll(){
+  if(confirm("Are you sure? All booking history will be deleted ❌")){
+    bookings = [];
+    localStorage.removeItem("bookings");
+    updateUI();
+    alert("Booking history cleared ✅");
+  }
+}
+
+// RESEND
+function resend(i){
+  let b = bookings[i];
+
+  let phone = b.phone.replace(/\D/g,'');
+  if(!phone.startsWith("91")) phone="91"+phone;
+
+  let msg = `🚌 Booking Confirmed
+
+👤 ${b.name}
+📍 ${b.route}`;
+
+  let url = "https://wa.me/"+phone+"?text="+encodeURIComponent(msg);
+  window.open(url,"_blank");
+}
+
+// CSV DOWNLOAD
+function downloadCSV(){
+
+  if(bookings.length === 0){
+    alert("No data ❌");
+    return;
+  }
+
+  let csv = "Agent,Passenger,Route,Bus,Seat,Time,Date,Earnings\n";
+  let total = 0;
+
+  bookings.forEach(b=>{
+    total += Number(b.earn);
+    csv += `${b.agentName},${b.name},${b.route},${b.bus},${b.seat},${b.time},${b.date},${b.earn}\n`;
+  });
+
+  csv += `\nTotal Earnings:,₹${total}`;
+
+  let blob = new Blob([csv], {type:"text/csv"});
+  let link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "booking-data.csv";
+  link.click();
+}
+
+</script>
+
+</body>
+</html>
